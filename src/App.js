@@ -3,7 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { onAuthStateChanged } from 'firebase/auth';
 import { MenuProvider } from 'react-native-popup-menu';
 import React, { useState, useEffect, useContext } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
@@ -26,6 +29,7 @@ import ChatMenu from './components/ChatMenu';
 import NotesList from './screens/NotesList.tsx';
 import ChatHeader from './components/ChatHeader';
 import NoteEditor from './screens/NoteEditor.tsx';
+import Unlock from './screens/Unlock';
 import { UnlockContext, UnlockProvider } from './contexts/UnlockContext';
 import { UnreadMessagesContext, UnreadMessagesProvider } from './contexts/UnreadMessagesContext';
 import {
@@ -33,14 +37,26 @@ import {
   AuthenticatedUserProvider,
 } from './contexts/AuthenticatedUserContext';
 
-const Stack = createStackNavigator();
-const Tab = createBottomTabNavigator();
+const RootStack = createStackNavigator();
+const ChatStack = createStackNavigator();
+const AuthStack = createStackNavigator();
 const NotesStack = createStackNavigator();
+const Tab = createBottomTabNavigator();
+
+export const navigationRef = createNavigationContainerRef();
 
 const QuickHideButton = () => {
   const { setUnlocked } = useContext(UnlockContext);
+
+  const handleHide = () => {
+    setUnlocked(false);
+    if (navigationRef.isReady()) {
+      navigationRef.reset({ index: 0, routes: [{ name: 'Notes' }] });
+    }
+  };
+
   return (
-    <TouchableOpacity onPress={() => setUnlocked(false)} style={{ marginRight: 10 }}>
+    <TouchableOpacity onPress={handleHide} style={{ marginRight: 10 }}>
       <Text style={{ color: colors.primary }}>Hide</Text>
     </TouchableOpacity>
   );
@@ -72,14 +88,14 @@ const TabNavigator = () => {
   );
 };
 
-const MainStack = () => (
-  <Stack.Navigator
+const ChatStackNavigator = () => (
+  <ChatStack.Navigator
     screenOptions={{
       headerRight: () => <QuickHideButton />,
     }}
   >
-    <Stack.Screen name="Home" component={TabNavigator} options={{ headerShown: false }} />
-    <Stack.Screen
+    <ChatStack.Screen name="Home" component={TabNavigator} options={{ headerShown: false }} />
+    <ChatStack.Screen
       name="Chat"
       component={Chat}
       options={({ route }) => ({
@@ -94,21 +110,25 @@ const MainStack = () => (
         ),
       })}
     />
-    <Stack.Screen name="Users" component={Users} options={{ title: 'Select User' }} />
-    <Stack.Screen name="Profile" component={Profile} />
-    <Stack.Screen name="About" component={About} />
-    <Stack.Screen name="Help" component={Help} />
-    <Stack.Screen name="Account" component={Account} />
-    <Stack.Screen name="Group" component={Group} options={{ title: 'New Group' }} />
-    <Stack.Screen name="ChatInfo" component={ChatInfo} options={{ title: 'Chat Information' }} />
-  </Stack.Navigator>
+    <ChatStack.Screen name="Users" component={Users} options={{ title: 'Select User' }} />
+    <ChatStack.Screen name="Profile" component={Profile} />
+    <ChatStack.Screen name="About" component={About} />
+    <ChatStack.Screen name="Help" component={Help} />
+    <ChatStack.Screen name="Account" component={Account} />
+    <ChatStack.Screen name="Group" component={Group} options={{ title: 'New Group' }} />
+    <ChatStack.Screen
+      name="ChatInfo"
+      component={ChatInfo}
+      options={{ title: 'Chat Information' }}
+    />
+  </ChatStack.Navigator>
 );
 
-const AuthStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="Login" component={Login} />
-    <Stack.Screen name="SignUp" component={SignUp} />
-  </Stack.Navigator>
+const AuthStackNavigator = () => (
+  <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStack.Screen name="Login" component={Login} />
+    <AuthStack.Screen name="SignUp" component={SignUp} />
+  </AuthStack.Navigator>
 );
 
 const NotesStackNavigator = () => (
@@ -132,14 +152,6 @@ const RootNavigator = () => {
     return unsubscribeAuth;
   }, [setUser]);
 
-  if (!unlocked) {
-    return (
-      <NavigationContainer>
-        <NotesStackNavigator />
-      </NavigationContainer>
-    );
-  }
-
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -149,7 +161,18 @@ const RootNavigator = () => {
   }
 
   return (
-    <NavigationContainer>{user ? <MainStack /> : <AuthStack />}</NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="Notes" component={NotesStackNavigator} />
+        <RootStack.Screen name="Unlock" component={Unlock} />
+        {unlocked && user && (
+          <RootStack.Screen name="Chat" component={ChatStackNavigator} />
+        )}
+        {unlocked && !user && (
+          <RootStack.Screen name="Auth" component={AuthStackNavigator} />
+        )}
+      </RootStack.Navigator>
+    </NavigationContainer>
   );
 };
 
