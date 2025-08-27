@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isConversationMember(cid) {
+      return request.auth != null &&
+        request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(cid)).data.members;
+    }
+
+    match /conversations/{cid}/media/{allPaths=**} {
+      allow read, write: if isConversationMember(cid);
+    }
+  }
+}

@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isConversationMember(cid) {
+      return request.auth != null &&
+        request.auth.uid in get(/databases/$(database)/documents/conversations/$(cid)).data.members;
+    }
+
+    function isCallParticipant(callId) {
+      return request.auth != null &&
+        let call = get(/databases/$(database)/documents/calls/$(callId)).data;
+        call.from == request.auth.uid || call.to == request.auth.uid;
+    }
+
+    match /conversations/{cid} {
+      match /messages/{mid} {
+        allow read, write: if isConversationMember(cid);
+      }
+    }
+
+    match /calls/{callId} {
+      allow read, write: if isCallParticipant(callId);
+      match /{document=**} {
+        allow read, write: if isCallParticipant(callId);
+      }
+    }
+
+    match /users/{uid} {
+      allow read: if resource.data.keys().hasOnly(['displayName', 'photoURL']);
+      allow write: if request.auth != null &&
+        request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(['displayName', 'photoURL']);
+    }
+  }
+}
