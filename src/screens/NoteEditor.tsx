@@ -2,11 +2,8 @@
 /* eslint-disable react/prop-types */
 import * as SecureStore from 'expo-secure-store';
 import { View, Button, TextInput } from 'react-native';
-import React, { useState, useEffect, useContext } from 'react';
-import * as LocalAuthentication from 'expo-local-authentication';
+import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-import { UnlockContext } from '../contexts/UnlockContext';
 
 const NOTES_KEY = 'notes';
 
@@ -15,7 +12,6 @@ const NoteEditor = ({ route, navigation }) => {
   const [text, setText] = useState('');
   const [phrase, setPhrase] = useState('');
   const [triggered, setTriggered] = useState(false);
-  const { setUnlocked } = useContext(UnlockContext);
 
   useEffect(() => {
     const load = async () => {
@@ -56,11 +52,8 @@ const NoteEditor = ({ route, navigation }) => {
     navigation.goBack();
   };
 
-  const attemptUnlock = async () => {
-    const result = await LocalAuthentication.authenticateAsync();
-    if (result.success) {
-      setUnlocked(true);
-    }
+  const attemptUnlock = () => {
+    navigation.navigate('Unlock');
   };
 
   return (

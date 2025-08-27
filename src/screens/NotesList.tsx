@@ -1,17 +1,13 @@
 /* eslint-disable import/no-unresolved */
 /* eslint-disable react/prop-types */
-import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View, Button, FlatList, TouchableOpacity } from 'react-native';
-import React, { useRef, useState, useEffect, useContext, useLayoutEffect } from 'react';
-
-import { UnlockContext } from '../contexts/UnlockContext';
+import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 
 const NOTES_KEY = 'notes';
 
 const NotesList = ({ navigation }) => {
   const [notes, setNotes] = useState([]);
-  const { setUnlocked } = useContext(UnlockContext);
   const tapCount = useRef(0);
   const timer = useRef(null);
 
@@ -52,11 +48,8 @@ const NotesList = ({ navigation }) => {
     }
   };
 
-  const attemptUnlock = async () => {
-    const result = await LocalAuthentication.authenticateAsync();
-    if (result.success) {
-      setUnlocked(true);
-    }
+  const attemptUnlock = () => {
+    navigation.navigate('Unlock');
   };
 
   const renderItem = ({ item }) => (
