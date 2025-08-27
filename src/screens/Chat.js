@@ -1,23 +1,34 @@
-import PropTypes from 'prop-types';
-import uuid from 'react-native-uuid';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import EmojiModal from 'react-native-emoji-modal';
-import React, { useState, useEffect, useCallback } from 'react';
-import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
-import { Send, Bubble, GiftedChat, InputToolbar } from 'react-native-gifted-chat';
-import { ref, getStorage, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
+import * as Location from 'expo-location';
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
-  View,
-  Keyboard,
-  StyleSheet,
-  BackHandler,
-  TouchableOpacity,
+  getDownloadURL,
+  getStorage,
+  ref,
+  uploadBytesResumable,
+} from 'firebase/storage';
+import PropTypes from 'prop-types';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
   ActivityIndicator,
+  BackHandler,
+  Image,
+  Keyboard,
+  Linking,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import EmojiModal from 'react-native-emoji-modal';
+import { Bubble, GiftedChat, InputToolbar, Send } from 'react-native-gifted-chat';
+import MapView, { Marker } from 'react-native-maps';
+import uuid from 'react-native-uuid';
 
 import { colors } from '../config/constants';
 import { auth, database } from '../config/firebase';
+import StickerPicker from '../components/StickerPicker';
 
 const RenderLoadingUpload = () => (
   <View style={styles.loadingContainerUpload}>
@@ -49,7 +60,12 @@ const RenderAttach = (props) => (
   </TouchableOpacity>
 );
 
-const RenderInputToolbar = (props, handleEmojiPanel) => (
+const RenderInputToolbar = (
+  props,
+  handleEmojiPanel,
+  handleStickerPanel,
+  sendLocationOnce
+) => (
   <View
     style={{
       flexDirection: 'row',
@@ -60,7 +76,9 @@ const RenderInputToolbar = (props, handleEmojiPanel) => (
   >
     <InputToolbar
       {...props}
-      renderActions={() => RenderActions(handleEmojiPanel)}
+      renderActions={() =>
+        RenderActions(handleEmojiPanel, handleStickerPanel, sendLocationOnce)
+      }
       containerStyle={styles.inputToolbar}
     />
     <Send {...props}>
@@ -71,19 +89,81 @@ const RenderInputToolbar = (props, handleEmojiPanel) => (
   </View>
 );
 
-const RenderActions = (handleEmojiPanel) => (
-  <TouchableOpacity style={styles.emojiIcon} onPress={handleEmojiPanel}>
-    <View>
+const RenderActions = (handleEmojiPanel, handleStickerPanel, sendLocationOnce) => (
+  <View style={styles.actionsContainer}>
+    <TouchableOpacity style={styles.actionIcon} onPress={handleEmojiPanel}>
       <Ionicons name="happy-outline" size={32} color={colors.teal} />
-    </View>
-  </TouchableOpacity>
+    </TouchableOpacity>
+    <TouchableOpacity style={styles.actionIcon} onPress={handleStickerPanel}>
+      <Ionicons name="images-outline" size={32} color={colors.teal} />
+    </TouchableOpacity>
+    <TouchableOpacity style={styles.actionIcon} onPress={sendLocationOnce}>
+      <Ionicons name="location-outline" size={32} color={colors.teal} />
+    </TouchableOpacity>
+  </View>
 );
+
+const openExternalMap = (lat, lng) => {
+  const url = Platform.select({
+    ios: `http://maps.apple.com/?ll=${lat},${lng}`,
+    android: `geo:${lat},${lng}?q=${lat},${lng}`,
+    default: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+  });
+  Linking.openURL(url);
+};
+
+const RenderCustomView = ({ currentMessage }) => {
+  if (currentMessage.type === 'location') {
+    return (
+      <TouchableOpacity
+        onPress={() => openExternalMap(currentMessage.lat, currentMessage.lng)}
+      >
+        <MapView
+          style={styles.map}
+          initialRegion={{
+            latitude: currentMessage.lat,
+            longitude: currentMessage.lng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          scrollEnabled={false}
+          zoomEnabled={false}
+        >
+          <Marker
+            coordinate={{
+              latitude: currentMessage.lat,
+              longitude: currentMessage.lng,
+            }}
+          />
+        </MapView>
+      </TouchableOpacity>
+    );
+  }
+  if (currentMessage.type === 'sticker') {
+    return (
+      <Image
+        source={{ uri: currentMessage.sticker }}
+        style={styles.stickerImageMessage}
+      />
+    );
+  }
+  return null;
+};
+
+RenderCustomView.propTypes = {
+  currentMessage: PropTypes.shape({
+    type: PropTypes.string,
+    lat: PropTypes.number,
+    lng: PropTypes.number,
+    sticker: PropTypes.string,
+  }).isRequired,
+};
 
 function Chat({ route }) {
   const [messages, setMessages] = useState([]);
   const [modal, setModal] = useState(false);
   const [uploading, setUploading] = useState(false);
-
+  const [stickerModal, setStickerModal] = useState(false);
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(database, 'chats', route.params.id), (document) => {
       setMessages(
@@ -91,33 +171,36 @@ function Chat({ route }) {
           ...message,
           createdAt: message.createdAt.toDate(),
           image: message.image ?? '',
+          sticker: message.sticker ?? '',
+          lat: message.lat ?? null,
+          lng: message.lng ?? null,
+          ts: message.ts?.toDate ? message.ts.toDate() : message.ts ?? null,
+          type: message.type ?? 'text',
         }))
       );
     });
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      //  Dismiss the keyboard
       Keyboard.dismiss();
-      //  If the emoji panel is open, close it
-      if (modal) {
+      if (modal || stickerModal) {
         setModal(false);
+        setStickerModal(false);
         return true;
       }
       return false;
     });
 
-    //  Dismiss the emoji panel when the keyboard is shown
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
       if (modal) setModal(false);
+      if (stickerModal) setStickerModal(false);
     });
 
-    // Cleanup
     return () => {
       unsubscribe();
       backHandler.remove();
       keyboardDidShowListener.remove();
     };
-  }, [route.params.id, modal]);
+  }, [route.params.id, modal, stickerModal]);
 
   const onSend = useCallback(
     async (m = []) => {
@@ -208,15 +291,50 @@ function Chat({ route }) {
   const handleEmojiPanel = useCallback(() => {
     setModal((prevModal) => {
       if (prevModal) {
-        // If the modal is already open, close it
         Keyboard.dismiss();
         return false;
       }
-      // If the modal is closed, open it
       Keyboard.dismiss();
+      setStickerModal(false);
       return true;
     });
   }, []);
+
+  const handleStickerPanel = useCallback(() => {
+    setStickerModal((prev) => {
+      if (prev) {
+        Keyboard.dismiss();
+        return false;
+      }
+      Keyboard.dismiss();
+      setModal(false);
+      return true;
+    });
+  }, []);
+
+  const sendLocationOnce = useCallback(async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const loc = await Location.getCurrentPositionAsync({});
+    onSend([
+      {
+        _id: uuid.v4(),
+        createdAt: new Date(),
+        text: '',
+        type: 'location',
+        lat: loc.coords.latitude,
+        lng: loc.coords.longitude,
+        ts: serverTimestamp(),
+        senderId: auth?.currentUser?.email,
+        user: {
+          _id: auth?.currentUser?.email,
+          name: auth?.currentUser?.displayName,
+          avatar: 'https://i.pravatar.cc/300',
+        },
+      },
+    ]);
+  }, [onSend]);
 
   return (
     <>
@@ -238,12 +356,40 @@ function Chat({ route }) {
         renderSend={(props) => RenderAttach({ ...props, onPress: pickImage })}
         renderUsernameOnMessage
         renderAvatarOnTop
-        renderInputToolbar={(props) => RenderInputToolbar(props, handleEmojiPanel)}
+        renderInputToolbar={(props) =>
+          RenderInputToolbar(
+            props,
+            handleEmojiPanel,
+            handleStickerPanel,
+            sendLocationOnce
+          )
+        }
+        renderCustomView={RenderCustomView}
         minInputToolbarHeight={56}
         scrollToBottom
-        onPressActionButton={handleEmojiPanel}
         scrollToBottomStyle={styles.scrollToBottomStyle}
         renderLoading={RenderLoading}
+      />
+
+      <StickerPicker
+        visible={stickerModal}
+        onSelect={(url) => {
+          onSend([
+            {
+              _id: uuid.v4(),
+              createdAt: new Date(),
+              text: '',
+              type: 'sticker',
+              sticker: url,
+              user: {
+                _id: auth?.currentUser?.email,
+                name: auth?.currentUser?.displayName,
+                avatar: 'https://i.pravatar.cc/300',
+              },
+            },
+          ]);
+          setStickerModal(false);
+        }}
       />
 
       {modal && (
@@ -276,6 +422,17 @@ function Chat({ route }) {
 }
 
 const styles = StyleSheet.create({
+  actionIcon: {
+    borderRadius: 16,
+    bottom: 8,
+    height: 32,
+    marginLeft: 4,
+    width: 32,
+  },
+  actionsContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
   addImageIcon: {
     borderRadius: 16,
     bottom: 8,
@@ -286,13 +443,6 @@ const styles = StyleSheet.create({
   emojiContainerModal: {
     height: 348,
     width: 396,
-  },
-  emojiIcon: {
-    borderRadius: 16,
-    bottom: 8,
-    height: 32,
-    marginLeft: 4,
-    width: 32,
   },
   emojiModal: {},
   inputToolbar: {
@@ -323,6 +473,11 @@ const styles = StyleSheet.create({
     top: 0,
     zIndex: 999,
   },
+  map: {
+    borderRadius: 8,
+    height: 160,
+    width: 200,
+  },
   scrollToBottomStyle: {
     borderColor: colors.grey,
     borderRadius: 28,
@@ -343,6 +498,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 8,
     width: 44,
+  },
+  stickerImageMessage: {
+    height: 120,
+    width: 120,
   },
 });
 

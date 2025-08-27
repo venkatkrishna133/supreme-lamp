@@ -33,7 +33,6 @@
   <a href="#contributors">Contributors</a> 
 </p>
 
----
 
 ## ℹ️ Introduction
 
@@ -60,7 +59,9 @@ https://github.com/Ctere1/react-native-chat/assets/62745858/bcde4aa0-d2f2-4d8c-8
 | **Delete Account**    | Delete your account from settings                                                                     |
 | **Real Time Chat**    | Chats update instantly with new messages                                                              |
 | **Users List**        | Registered users sorted alphabetically                                                                |
-| **Note to Self**      | Create personal notes by messaging yourself                                                           |
+| **Note to Self**      | Create personal notes by messaging yourself |
+| **Sticker Messages**  | Send playful stickers from a Firebase-hosted pack |
+| **Location Sharing**  | Share your coordinates once with a small map preview |
 
 ---
 
@@ -76,14 +77,23 @@ cd react-native-chat
 # Install dependencies
 npm install
 
+# Add sticker PNGs locally (ignored by git)
+# e.g., place files under media/stickers/
+
+# Upload stickers to Firebase Storage and index in Firestore
+npm run seed:stickers
+
 # Start the Expo development server
-npx expo start
+npm start
 ```
 
-> [!TIP] 
+> [!TIP]
 > Install [Expo Go](https://expo.dev/go) on your mobile device to test the app instantly.
 
-> [!WARNING]  
+> [!NOTE]
+> The "Send location once" action requests foreground location permission and sends a map preview. Tap the card to open your maps app.
+
+> [!WARNING]
 > Don't forget to set up your `.env` file for Firebase connection. See [Firebase docs](https://firebase.google.com/docs/firestore/quickstart) or [this comment](https://github.com/Ctere1/react-native-chat/issues/1#issuecomment-2414810841).
 
 ---
