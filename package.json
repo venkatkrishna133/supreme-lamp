@@ -44,6 +44,8 @@
     "expo-image-picker": "~16.1.4",
     "expo-notifications": "~0.31.4",
     "expo-status-bar": "~2.2.3",
+    "expo-local-authentication": "~13.7.0",
+    "expo-secure-store": "~13.0.3",
     "firebase": "^12.0.0",
     "process": "^0.11.10",
     "prop-types": "^15.8.1",
