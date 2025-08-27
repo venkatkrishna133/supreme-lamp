@@ -96,6 +96,60 @@ npm start
 > [!WARNING]
 > Don't forget to set up your `.env` file for Firebase connection. See [Firebase docs](https://firebase.google.com/docs/firestore/quickstart) or [this comment](https://github.com/Ctere1/react-native-chat/issues/1#issuecomment-2414810841).
 
+## 🔧 Configuration
+
+### Environment variables
+
+Create a `.env` file in the project root:
+
+```env
+FIREBASE_API_KEY=TODO
+FIREBASE_AUTH_DOMAIN=TODO
+FIREBASE_PROJECT_ID=TODO
+FIREBASE_STORAGE_BUCKET=TODO
+FIREBASE_MESSAGING_SENDER_ID=TODO
+FIREBASE_APP_ID=TODO
+FIREBASE_MEASUREMENT_ID=TODO
+FIREBASE_DATABASE_URL=TODO
+STUN_SERVER=stun:stun.l.google.com:19302
+TURN_URL=TODO
+TURN_USERNAME=TODO
+TURN_PASSWORD=TODO
+EAS_PROJECT_ID=TODO
+```
+
+### Firebase setup
+
+1. Create a Firebase project with Firestore, Storage and Email/Password auth.
+2. Replace the TODO values in `.env`.
+3. Deploy security rules:
+
+```bash
+firebase deploy --only firestore:rules,storage:rules
+```
+
+### TURN server
+
+Use [coturn](https://github.com/coturn/coturn) with TLS on port 443:
+
+```bash
+sudo apt install coturn
+turnserver -a -o -v --lt-cred-mech --fingerprint \
+  --cert=/path/to/fullchain.pem --pkey=/path/to/privkey.pem \
+  --realm your.domain.com --listening-port 3478 --tls-listening-port 443
+```
+
+Add the `TURN_URL` (e.g. `turns:your.domain.com:443?transport=tcp`), `TURN_USERNAME` and `TURN_PASSWORD` to `.env`.
+
+### EAS development client
+
+Build a dev client to test native modules:
+
+```bash
+eas build --profile development --platform android   # or ios
+npx expo start --dev-client
+```
+
 ---
 
 ## 🏗️ Building Guide
