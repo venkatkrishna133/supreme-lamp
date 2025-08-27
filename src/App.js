@@ -1,12 +1,12 @@
 import { registerRootComponent } from 'expo';
 import { Ionicons } from '@expo/vector-icons';
 import { onAuthStateChanged } from 'firebase/auth';
-import { View, ActivityIndicator } from 'react-native';
 import { MenuProvider } from 'react-native-popup-menu';
 import React, { useState, useEffect, useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 
 import Chat from './screens/Chat';
 import Help from './screens/Help';
@@ -23,7 +23,10 @@ import Settings from './screens/Settings';
 import ChatInfo from './screens/ChatInfo';
 import { colors } from './config/constants';
 import ChatMenu from './components/ChatMenu';
+import NotesList from './screens/NotesList.tsx';
 import ChatHeader from './components/ChatHeader';
+import NoteEditor from './screens/NoteEditor.tsx';
+import { UnlockContext, UnlockProvider } from './contexts/UnlockContext';
 import { UnreadMessagesContext, UnreadMessagesProvider } from './contexts/UnreadMessagesContext';
 import {
   AuthenticatedUserContext,
@@ -32,6 +35,16 @@ import {
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+const NotesStack = createStackNavigator();
+
+const QuickHideButton = () => {
+  const { setUnlocked } = useContext(UnlockContext);
+  return (
+    <TouchableOpacity onPress={() => setUnlocked(false)} style={{ marginRight: 10 }}>
+      <Text style={{ color: colors.primary }}>Hide</Text>
+    </TouchableOpacity>
+  );
+};
 
 const TabNavigator = () => {
   const { unreadCount, setUnreadCount } = useContext(UnreadMessagesContext);
@@ -48,6 +61,7 @@ const TabNavigator = () => {
         tabBarInactiveTintColor: 'gray',
         headerShown: true,
         presentation: 'modal',
+        headerRight: () => <QuickHideButton />,
       })}
     >
       <Tab.Screen name="Chats" options={{ tabBarBadge: unreadCount > 0 ? unreadCount : null }}>
@@ -59,15 +73,22 @@ const TabNavigator = () => {
 };
 
 const MainStack = () => (
-  <Stack.Navigator>
+  <Stack.Navigator
+    screenOptions={{
+      headerRight: () => <QuickHideButton />,
+    }}
+  >
     <Stack.Screen name="Home" component={TabNavigator} options={{ headerShown: false }} />
     <Stack.Screen
       name="Chat"
       component={Chat}
       options={({ route }) => ({
-        headerTitle: () => <ChatHeader chatName={route.params.chatName} chatId={route.params.id} />,
+        headerTitle: () => (
+          <ChatHeader chatName={route.params.chatName} chatId={route.params.id} />
+        ),
         headerRight: () => (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <QuickHideButton />
             <ChatMenu chatName={route.params.chatName} chatId={route.params.id} />
           </View>
         ),
@@ -90,8 +111,16 @@ const AuthStack = () => (
   </Stack.Navigator>
 );
 
+const NotesStackNavigator = () => (
+  <NotesStack.Navigator>
+    <NotesStack.Screen name="NotesList" component={NotesList} />
+    <NotesStack.Screen name="NoteEditor" component={NoteEditor} />
+  </NotesStack.Navigator>
+);
+
 const RootNavigator = () => {
   const { user, setUser } = useContext(AuthenticatedUserContext);
+  const { unlocked } = useContext(UnlockContext);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -103,6 +132,14 @@ const RootNavigator = () => {
     return unsubscribeAuth;
   }, [setUser]);
 
+  if (!unlocked) {
+    return (
+      <NavigationContainer>
+        <NotesStackNavigator />
+      </NavigationContainer>
+    );
+  }
+
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -111,17 +148,21 @@ const RootNavigator = () => {
     );
   }
 
-  return <NavigationContainer>{user ? <MainStack /> : <AuthStack />}</NavigationContainer>;
+  return (
+    <NavigationContainer>{user ? <MainStack /> : <AuthStack />}</NavigationContainer>
+  );
 };
 
 const App = () => (
-    <MenuProvider>
+  <MenuProvider>
+    <UnlockProvider>
       <AuthenticatedUserProvider>
         <UnreadMessagesProvider>
           <RootNavigator />
         </UnreadMessagesProvider>
       </AuthenticatedUserProvider>
-    </MenuProvider>
-  );
+    </UnlockProvider>
+  </MenuProvider>
+);
 
-  export default registerRootComponent(App);
+export default registerRootComponent(App);
