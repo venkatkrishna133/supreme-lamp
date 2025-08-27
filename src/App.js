@@ -7,10 +7,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import {
-  NavigationContainer,
-  createNavigationContainerRef,
-} from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { doc, setDoc } from 'firebase/firestore';
 import { Platform, ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
@@ -25,6 +22,7 @@ import SignUp from './screens/SignUp';
 import Profile from './screens/Profile';
 import Account from './screens/Account';
 import Settings from './screens/Settings';
+import CallScreen from './screens/CallScreen';
 import { auth, database } from './config/firebase';
 import ChatInfo from './screens/ChatInfo';
 import { colors } from './config/constants';
@@ -139,9 +137,7 @@ const ChatStackNavigator = () => (
       name="Chat"
       component={Chat}
       options={({ route }) => ({
-        headerTitle: () => (
-          <ChatHeader chatName={route.params.chatName} chatId={route.params.id} />
-        ),
+        headerTitle: () => <ChatHeader chatName={route.params.chatName} chatId={route.params.id} />,
         headerRight: () => (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <QuickHideButton />
@@ -161,6 +157,7 @@ const ChatStackNavigator = () => (
       component={ChatInfo}
       options={{ title: 'Chat Information' }}
     />
+    <ChatStack.Screen name="Call" component={CallScreen} options={{ title: 'Call' }} />
   </ChatStack.Navigator>
 );
 
@@ -239,12 +236,8 @@ const RootNavigator = () => {
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Notes" component={NotesStackNavigator} />
         <RootStack.Screen name="Unlock" component={Unlock} />
-        {unlocked && user && (
-          <RootStack.Screen name="Chat" component={ChatStackNavigator} />
-        )}
-        {unlocked && !user && (
-          <RootStack.Screen name="Auth" component={AuthStackNavigator} />
-        )}
+        {unlocked && user && <RootStack.Screen name="Chat" component={ChatStackNavigator} />}
+        {unlocked && !user && <RootStack.Screen name="Auth" component={AuthStackNavigator} />}
       </RootStack.Navigator>
     </NavigationContainer>
   );

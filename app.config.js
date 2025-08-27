@@ -38,6 +38,10 @@ export default {
       messagingSenderId: process.env.EXPO_PUBLIC_MESSAGING_SENDER_ID,
       appId: process.env.EXPO_PUBLIC_APP_ID,
       measurementId: process.env.EXPO_PUBLIC_MEASUREMENT_ID,
+      stunServer: process.env.EXPO_PUBLIC_STUN_SERVER,
+      turnServer: process.env.EXPO_PUBLIC_TURN_SERVER,
+      turnUsername: process.env.EXPO_PUBLIC_TURN_USERNAME,
+      turnCredential: process.env.EXPO_PUBLIC_TURN_CREDENTIAL,
       eas: {
         projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
       },
